@@ -25,7 +25,7 @@ for file in files:
     # header
     header_line = f'---\n'
     data.insert(0,header_line)
-    data[1] = f'title: {data[1][2:]}'
+    data[1] = f"title: '{data[1][2:].rstrip()}'\n"
     data.insert(2,header_line)
 
     # toc
