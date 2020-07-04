@@ -2,6 +2,7 @@
 
 import glob
 import os
+import re
 
 # create file to store processed file in
 try:
@@ -13,11 +14,13 @@ except:
 files = glob.glob(f'*.md')
 print(f'{len(files)} files')
 # loop through files
-counter = 0
+counter = 1
 for file in files:
     # extract filename, removing notion note ID
     title = file.split('\\')[-1][:-3]
     title = '-'.join(title.split(' ')[:-1])
+    filename = title.lower()
+    print(f'({counter}) {filename}.md')
 
     # open file
     with open(f'{file}', 'r', encoding="utf8") as original: data = original.readlines()
@@ -27,6 +30,19 @@ for file in files:
     data.insert(0,header_line)
     data[1] = f"title: '{data[1][2:].rstrip()}'\n"
     data.insert(2,header_line)
+
+    # internal links
+    for line in data:
+        regex1 = '\[.*\]\(.*\)' # all links
+        regex2 = '\[.*\]\(.*\.md\)' # markdown files - likely internal
+        regex3 = '\[.*\]\(http.*\)' # external links
+        if re.match(regex1,line):
+            if re.match(regex2,line):
+                print(f'------ {line.rstrip()}')
+            elif re.match(regex3,line):
+                pass
+            else:
+                print(f'------ {line.rstrip()}')
 
     # toc
     toc = []
@@ -49,7 +65,5 @@ for file in files:
     data.insert(3,'\n')
 
     # save file
-    filename = title.lower()
     with open(f'processed\\{filename}.md', 'w', encoding="utf8") as modified: modified.writelines(data)
     counter += 1
-    print(f'({counter}) {filename}.md')
