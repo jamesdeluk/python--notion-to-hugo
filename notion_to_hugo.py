@@ -1,47 +1,22 @@
 #!/usr/bin/env python
 
-# for Windows, cwd
-# to do: subdirectories
+# to do: privatise IPs, delete empty folders, fix /img rename, move to processed folder, deal with top-level file, check linux compatibility
 
 import glob
 import os
+from pathlib import Path
 import shutil
 import re
 from urllib.parse import unquote
 
-# collect files
-files = glob.glob('*.md')
-print(f'{len(files)} files')
-# files_l1 = glob.glob('*', recursive=True)
-# print(files_l1)
-# files_l2 = []
-# for f in files_l1:
-#     print(f)
-#     files_l2.append(glob.glob(f'{f}/*', recursive=True))
-# print(files_l2)
-
-# # using pathlib
-# from pathlib import Path
-# print(Path('.').rglob('*'))
-
-# create file to store processed file in
-try:
-    os.mkdir('processed')
-except:
-    'file already exists'
-try:
-    os.mkdir('processed/img')
-except:
-    'file already exists'
-
 # loop through files
-counter = 1
-for f in files:
+def process_file(f):
     # extract filename, removing notion note ID
+    f = str(f)
+    path = '\\'.join(f.split('\\')[:-1])
     title = f.split('\\')[-1][:-3]
     title = '-'.join(title.split(' ')[:-1])
     filename = title.lower()
-    print(f'({counter}) {filename}.md')
 
     # open file
     with open(f'{f}', 'r', encoding="utf8") as original: data = original.readlines()
@@ -53,7 +28,7 @@ for f in files:
     data.insert(2,header_line)
 
     # internal links
-    print('\n=== Internal Links ===')
+    print('=== Internal Links ===')
     for line in data:
         regex1 = r'\[.*\]\(.*\)' # all links
         regex2 = r'\[.*\]\(.*\.md\)' # markdown files - likely internal
@@ -67,19 +42,28 @@ for f in files:
                 print(f'{line.rstrip()}')
 
     # images
-    print('\n=== Images ===')
+    print('=== Images ===')
     img_count = 0
     line_id = 0
     for line in data:
+        regex_img_http = r'!\[.*\]\(http.*\)'
         regex_img = r'!\[.*\]\(.*\)'
-        if re.match(regex_img,line):
+        if re.match(regex_img_http,line):
+            print(f'External image: {line.strip()}')
+            continue
+        elif re.match(regex_img,line):
+            try:
+                os.mkdir(f'{path}/img')
+            except:
+                pass
             print(line.strip())
             img_count += 1
             img_path = unquote(line.replace('[','|').replace(']','|').split('|')[1])
             filetype = img_path.split('.')[-1]
-            img_new_name = f'img{img_count}'
-            shutil.copy(img_path, f'processed/img/{img_new_name}.{filetype}')
-            data[line_id] = f'![{img_new_name}](img/{img_new_name})\n'
+            img_new_name = f'{filename}_img{img_count}'
+            shutil.copy(f'{path}/{img_path}', f'{path}/img/{img_new_name}.{filetype}')
+            os.remove(f'{path}/{img_path}')
+            data[line_id] = f'![{img_new_name}](img/{img_new_name}.{filetype})\n'
         line_id += 1
 
     # toc
@@ -103,5 +87,25 @@ for f in files:
     data.insert(3,'\n')
 
     # save file
-    with open(f'processed\\{filename}.md', 'w', encoding="utf8") as modified: modified.writelines(data)
-    counter += 1
+    with open(f'{path}/{filename}.md', 'w', encoding="utf8") as modified: modified.writelines(data)
+
+    # delete original
+    os.remove(f)
+# end def
+
+# process files
+for md in Path(".").glob("**/*.md"):
+    print(f'{md}')
+    process_file(md)
+
+# rename folders
+for path in Path(".").glob("**/*"):
+    if path.is_dir():
+        if '/img' in str(path):
+            print(path)
+        else:
+            target = path.parent / " ".join(path.name.split()[:-1]).lower()
+            try:
+                path.rename(target)
+            except:
+                print(f'Failed to rename {path} to {target}')
